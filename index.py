@@ -69,8 +69,10 @@ def get_domain_url(action, ak, sk, host_record='@', record_type='A', line='defau
 
 
 def update_domain_record(*args, **kwargs):
-    domain_info = requests.get(get_domain_url('DescribeDomainRecords', *args, **kwargs)).json()
-    records = domain_info.get('DomainRecords', {}).get('Record', [])
+    domain_info = requests.get(get_domain_url('DescribeDomainRecords', *args, **kwargs))
+    if domain_info.status_code != 200:
+        return domain_info.content, domain_info.status_code
+    records = domain_info.json().get('DomainRecords', {}).get('Record', [])
     if records:
         rid, rval = records[0]['RecordId'], records[0]['Value']
         if rval == kwargs['value']:
