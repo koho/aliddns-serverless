@@ -78,7 +78,7 @@ def update_domain_record(*args, **kwargs):
     if records:
         rid, rval = records[0]['RecordId'], records[0]['Value']
         if rval == kwargs['value']:
-            return json.dumps({'RequestId': di.get('RequestId'), 'RecordId': rid}), 200
+            return json.dumps({'RequestId': di.get('RequestId'), 'RecordId': rid}).encode(), 200
         update_url = get_domain_url('UpdateDomainRecord', *args, record_id=rid, **kwargs)
     else:
         update_url = get_domain_url('AddDomainRecord', *args, **kwargs)
@@ -91,16 +91,25 @@ def update():
     ak, sk, domain, value = request.args.get('ak'), request.args.get('sk'), request.args.get('domain'), request.args.get('value')
     if not all([ak, sk, domain, value]):
         abort(400)
-    z = domain.rsplit('.', 2)
-    if len(z) == 3:
-        rr, name = z[0], '.'.join(z[1:])
-    else:
-        rr, name = '@', '.'.join(z)
-    resp, code = update_domain_record(
-        ak, sk, domain=name, value=value,
-        host_record=rr, record_type=request.args.get('type', 'A'),
-    )
-    return Response(resp, status=code, mimetype='application/json')
+    ret = 200
+    responses = []
+    for d in domain.split("/"):
+        z = d.rsplit('.', 2)
+        if len(z) == 3:
+            rr, name = z[0], '.'.join(z[1:])
+        else:
+            rr, name = '@', '.'.join(z)
+        resp, code = update_domain_record(
+            ak, sk, domain=name, value=value,
+            host_record=rr, record_type=request.args.get('type', 'A'),
+        )
+        if code != 200:
+            ret = code
+        responses.append(resp)
+    data = b','.join(responses)
+    if len(responses) > 1:
+        data = b'[' + data + b']'
+    return Response(data, status=ret, mimetype='application/json')
 
 
 def handler(environ, start_response):
