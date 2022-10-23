@@ -1,6 +1,7 @@
 import base64
 import datetime
 import hmac
+import json
 import urllib.parse
 import uuid
 
@@ -72,11 +73,12 @@ def update_domain_record(*args, **kwargs):
     domain_info = requests.get(get_domain_url('DescribeDomainRecords', *args, **kwargs))
     if domain_info.status_code != 200:
         return domain_info.content, domain_info.status_code
-    records = domain_info.json().get('DomainRecords', {}).get('Record', [])
+    di = domain_info.json()
+    records = di.get('DomainRecords', {}).get('Record', [])
     if records:
         rid, rval = records[0]['RecordId'], records[0]['Value']
         if rval == kwargs['value']:
-            return
+            return json.dumps({'RequestId': di.get('RequestId'), 'RecordId': rid}), 200
         update_url = get_domain_url('UpdateDomainRecord', *args, record_id=rid, **kwargs)
     else:
         update_url = get_domain_url('AddDomainRecord', *args, **kwargs)
